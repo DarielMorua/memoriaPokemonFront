@@ -1,4 +1,5 @@
 /* eslint-disable no-undef */
+let imgSrc;
 describe("Pruebas e2e del juego", () => {
   beforeEach(() => {
     cy.visit("http://localhost:8080");
@@ -75,21 +76,27 @@ describe("Pruebas e2e del juego", () => {
 
   describe(" Creación y envío de secuencia ", () => {
     it("Validar que al dar click en un Pokemon este sea añadido a la secuencia", () => {
+      let imgBtn;
       cy.intercept("POST", "/enviarSecuencia").as("iniciarJuego");
-
       cy.get(".start-button").click();
-
       cy.wait("@iniciarJuego").its("response.statusCode").should("eq", 200);
-
       cy.contains("h1", "Secuencia a memorizar:").should("exist");
-
       cy.wait(5500);
-      cy.get(".button-container .image-button").first().click();
 
-      cy.contains("h1", "Secuencia a enviar:")
-        .parent()
+      cy.get(".button-container .image-button")
+        .first()
         .find("img")
-        .should("have.length", 1);
+        .invoke("attr", "src")
+        .then((src) => {
+          imgBtn = src;
+
+          cy.get(".button-container .image-button").first().click();
+
+          cy.contains("h1", "Secuencia a enviar:")
+            .parent()
+            .find("img")
+            .should("have.attr", "src", imgBtn);
+        });
     });
     it("La prueba debe de validar que al dar click en un Pokemon de la secuencia este sea removido", () => {
       cy.intercept("POST", "/enviarSecuencia").as("iniciarJuego");
@@ -157,24 +164,31 @@ describe("Pruebas e2e del juego", () => {
         expect(interception.request.body.pokemons.length).to.be.greaterThan(0);
       });
     });
-    describe("Finalización del Juego", () => {
-      it("Debe mostrar el puntaje cuando el juego termina tras un error", function () {
-        cy.intercept("POST", "/enviarSecuencia").as("iniciarJuego");
+  });
+  describe("Finalización del Juego", () => {
+    it("Debe mostrar el puntaje cuando el juego termina tras un error", function () {
+      cy.intercept("POST", "/enviarSecuencia").as("iniciarJuego");
 
-        cy.get(".start-button").click();
+      cy.get(".start-button").click();
 
-        cy.wait("@iniciarJuego").its("response.statusCode").should("eq", 200);
+      cy.wait("@iniciarJuego").its("response.statusCode").should("eq", 200);
 
-        cy.wait(5500);
-
-        cy.get(".button-container .image-button").first().click();
-
-        cy.get(".play-button").should("exist").click();
-
-        cy.contains("h1", "GAME OVER").should("exist");
-
-        cy.contains("h2", "Puntaje:").should("exist");
+      cy.get("#secuenciaAMemorizar1 img").each(($img) => {
+        imgSrc = $img.attr("src");
       });
+      cy.wait(5500);
+      cy.get("#secuenciaAMemorizar1 img").should("have.length.greaterThan", 0);
+      cy.get(".button-container .image-button").each(($btn) => {
+        const btnSrc = $btn.find("img").attr("src");
+        if (imgSrc !== btnSrc) {
+          cy.wrap($btn).click();
+        }
+      });
+
+      cy.get(".play-button").should("exist").click();
+
+      cy.contains("h1", "GAME OVER").should("exist");
+      cy.contains("h2", "Puntaje:").should("exist");
     });
   });
 });
